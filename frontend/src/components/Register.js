@@ -4,15 +4,25 @@ import axios from 'axios';
 function Register() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(''); // Foutmelding
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post('https://agency.up.railway.app/register', { username, password });
-      setMessage(response.data.message);
+      setMessage('User registered successfully');
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Error registering');
+      if (error.response) {
+        // De backend heeft een fout geretourneerd
+        if (error.response.status === 400) {
+          setMessage('Username already exists or invalid input');
+        } else if (error.response.status === 500) {
+          setMessage('Server error, please try again later');
+        }
+      } else {
+        // Netwerk- of andere fouten
+        setMessage('Network error, please check your connection');
+      }
     }
   };
 
@@ -36,10 +46,9 @@ function Register() {
         />
         <button type="submit">Register</button>
       </form>
-      {message && <p>{message}</p>}
+      {message && <p>{message}</p>} {/* Foutmelding weergeven */}
     </div>
   );
 }
 
 export default Register;
-
