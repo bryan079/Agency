@@ -17,6 +17,6 @@
     "react-scripts": "4.0.3"
   },
   "engines": {
-    "node": "16.x"  // Hier stel je de Node.js-versie in op 16.x
+    "node": "16.x"
   }
 }
