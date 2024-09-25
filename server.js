@@ -221,4 +221,11 @@ app.delete('/projects/:projectId', authenticateToken, async (req, res) => {
     res.json({ message: 'Project deleted successfully' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error, please try again
+    res.status(500).json({ message: 'Server error, please try again later' });
+  }
+});
+
+// Start de server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
