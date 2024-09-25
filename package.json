@@ -8,9 +8,11 @@
   },
   "dependencies": {
     "express": "^4.17.1",
+    "pg": "^8.7.1",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^8.5.1",
-    "pg": "^8.7.1"
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5"
   },
   "engines": {
     "node": ">=14.0.0"
