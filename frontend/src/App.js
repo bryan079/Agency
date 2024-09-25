@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+// SupportTickets component (zoals je die al had)
 function SupportTickets() {
   const [tickets, setTickets] = useState([]);
   const [subject, setSubject] = useState('');
@@ -57,4 +58,47 @@ function SupportTickets() {
   );
 }
 
-export default SupportTickets;
+// Dashboard component voor nieuwe data
+function Dashboard() {
+  const [stats, setStats] = useState({});
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    axios.get('https://agency.up.railway.app/dashboard', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    .then(response => setStats(response.data.stats))
+    .catch(error => setMessage('Error loading dashboard'));
+  }, []);
+
+  return (
+    <div>
+      <h2>Dashboard</h2>
+      {message ? (
+        <p>{message}</p>
+      ) : (
+        <div>
+          <p>Total Users: {stats.totalUsers}</p>
+          <p>Total Projects: {stats.totalProjects}</p>
+          <p>Open Tickets: {stats.openTickets}</p>
+          <p>In Progress Tickets: {stats.inProgressTickets}</p>
+          <p>Closed Tickets: {stats.closedTickets}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Hoofdfunctie van de app
+function App() {
+  return (
+    <div>
+      <h1>Welcome to the App</h1>
+      <Dashboard />
+      <SupportTickets />
+    </div>
+  );
+}
+
+export default App;
