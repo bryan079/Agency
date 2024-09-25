@@ -2,10 +2,11 @@ const express = require('express');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser'); // Voor het verwerken van cookies
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const SECRET_KEY = process.env.SECRET_KEY;
+const SECRET_KEY = process.env.SECRET_KEY || 'your_secret_key';
 
 // PostgreSQL-verbinding instellen
 const pool = new Pool({
@@ -16,6 +17,7 @@ const pool = new Pool({
 });
 
 app.use(express.json());
+app.use(cookieParser()); // Middleware om cookies te verwerken
 
 // Middleware voor het verifiëren van JWT-tokens
 function authenticateToken(req, res, next) {
@@ -58,7 +60,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// Login met foutafhandeling
+// Login met foutafhandeling en refresh token
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -78,12 +80,39 @@ app.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Invalid username or password' });
     }
 
-    const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '1h' });
+    // Access token 15 minuten, refresh token 7 dagen
+    const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '7d' });
+
+    // Stuur de refresh token via een HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true });
+
     res.json({ token });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error, please try again later' });
   }
+});
+
+// Refresh token route
+app.post('/refresh-token', (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) {
+    return res.sendStatus(403);
+  }
+
+  jwt.verify(refreshToken, SECRET_KEY, (err, user) => {
+    if (err) return res.sendStatus(403);
+
+    const newAccessToken = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '15m' });
+    res.json({ token: newAccessToken });
+  });
+});
+
+// Uitlogroute: verwijder de refresh token
+app.post('/logout', (req, res) => {
+  res.clearCookie('refreshToken'); // Verwijder de cookie
+  res.json({ message: 'Logged out successfully' });
 });
 
 // Beveiligde route voor het ophalen van profielgegevens
@@ -94,46 +123,6 @@ app.get('/profile', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     res.json({ username: result.rows[0].username });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error, please try again later' });
-  }
-});
-
-// Beveiligde route voor het ophalen van projecten
-app.get('/projects', authenticateToken, async (req, res) => {
-  try {
-    const projects = await pool.query('SELECT * FROM projects WHERE user_id = $1', [req.user.username]);
-    res.json(projects.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error, please try again later' });
-  }
-});
-
-// Route voor het aanmaken van tickets
-app.post('/tickets', authenticateToken, async (req, res) => {
-  const { subject, description } = req.body;
-
-  if (!subject || !description) {
-    return res.status(400).json({ message: 'Subject and description are required' });
-  }
-
-  try {
-    await pool.query('INSERT INTO tickets (user_id, subject, description, status) VALUES ($1, $2, $3, $4)', 
-    [req.user.username, subject, description, 'open']);
-    res.status(201).json({ message: 'Ticket created successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error, please try again later' });
-  }
-});
-
-// Route voor het ophalen van tickets
-app.get('/tickets', authenticateToken, async (req, res) => {
-  try {
-    const tickets = await pool.query('SELECT * FROM tickets WHERE user_id = $1', [req.user.username]);
-    res.json(tickets.rows);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error, please try again later' });
