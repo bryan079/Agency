@@ -1,14 +1,15 @@
 const express = require('express');
-const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const cookieParser = require('cookie-parser'); // Voor het verwerken van cookies
+const { Pool } = require('pg'); // PostgreSQL client
+const bcrypt = require('bcryptjs'); // Wachtwoord hashing
+const jwt = require('jsonwebtoken'); // JWT voor authenticatie
+const cookieParser = require('cookie-parser'); // Voor cookies zoals refresh tokens
+const cors = require('cors'); // Eventueel nodig voor cross-origin requests
+
 const app = express();
 const PORT = process.env.PORT || 3000;
-
 const SECRET_KEY = process.env.SECRET_KEY || 'your_secret_key';
 
-// PostgreSQL-verbinding instellen
+// Instellen van de PostgreSQL databaseverbinding
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
@@ -17,22 +18,23 @@ const pool = new Pool({
 });
 
 app.use(express.json());
-app.use(cookieParser()); // Middleware om cookies te verwerken
+app.use(cookieParser()); // Voor het verwerken van cookies
+app.use(cors()); // Indien nodig om front-end requests te ondersteunen
 
-// Middleware voor het verifiëren van JWT-tokens
+// Middleware om JWT-tokens te verifiëren
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.sendStatus(401);
+  if (!token) return res.sendStatus(401); // Geen token aanwezig
 
   jwt.verify(token, SECRET_KEY, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) return res.sendStatus(403); // Token is niet meer geldig
     req.user = user;
     next();
   });
 }
 
-// Gebruikersregistratie met foutafhandeling
+// Gebruikersregistratie met wachtwoord hashing
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
 
@@ -60,7 +62,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// Login met foutafhandeling en refresh token
+// Login met JWT-token en refresh token via HTTP-only cookie
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -80,26 +82,21 @@ app.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Invalid username or password' });
     }
 
-    // Access token 15 minuten, refresh token 7 dagen
-    const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '7d' });
+    const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '15m' }); // Access token
+    const refreshToken = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '7d' }); // Refresh token
 
-    // Stuur de refresh token via een HTTP-only cookie
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true });
-
-    res.json({ token });
+    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: true }); // Stuur de refresh token via een cookie
+    res.json({ token }); // Stuur access token naar de client
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error, please try again later' });
   }
 });
 
-// Refresh token route
+// Refresh token endpoint
 app.post('/refresh-token', (req, res) => {
   const refreshToken = req.cookies.refreshToken;
-  if (!refreshToken) {
-    return res.sendStatus(403);
-  }
+  if (!refreshToken) return res.sendStatus(403);
 
   jwt.verify(refreshToken, SECRET_KEY, (err, user) => {
     if (err) return res.sendStatus(403);
@@ -109,9 +106,9 @@ app.post('/refresh-token', (req, res) => {
   });
 });
 
-// Uitlogroute: verwijder de refresh token
+// Uitloggen en het verwijderen van de refresh token
 app.post('/logout', (req, res) => {
-  res.clearCookie('refreshToken'); // Verwijder de cookie
+  res.clearCookie('refreshToken'); // Verwijder de refresh token cookie
   res.json({ message: 'Logged out successfully' });
 });
 
