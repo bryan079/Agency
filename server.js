@@ -148,3 +148,23 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+
+// Route voor het bijwerken van profielgegevens
+app.put('/profile', authenticateToken, async (req, res) => {
+  const { email, name, address } = req.body;
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET email = $1, name = $2, address = $3 WHERE username = $4 RETURNING username, email, name, address',
+      [email, name, address, req.user.username]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again later' });
+  }
+});
+
