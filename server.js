@@ -229,3 +229,36 @@ app.delete('/projects/:projectId', authenticateToken, async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+
+app.get('/dashboard', authenticateToken, async (req, res) => {
+  try {
+    // Haal statistieken op, bijvoorbeeld totalUsers, totalProjects, etc.
+    const totalUsersResult = await pool.query('SELECT COUNT(*) FROM users');
+    const totalUsers = totalUsersResult.rows[0].count;
+
+    const totalProjectsResult = await pool.query('SELECT COUNT(*) FROM projects WHERE user_id = $1', [req.user.username]);
+    const totalProjects = totalProjectsResult.rows[0].count;
+
+    const openTicketsResult = await pool.query('SELECT COUNT(*) FROM tickets WHERE status = $1 AND user_id = $2', ['open', req.user.username]);
+    const inProgressTicketsResult = await pool.query('SELECT COUNT(*) FROM tickets WHERE status = $1 AND user_id = $2', ['in behandeling', req.user.username]);
+    const closedTicketsResult = await pool.query('SELECT COUNT(*) FROM tickets WHERE status = $1 AND user_id = $2', ['gesloten', req.user.username]);
+
+    const openTickets = openTicketsResult.rows[0].count;
+    const inProgressTickets = inProgressTicketsResult.rows[0].count;
+    const closedTickets = closedTicketsResult.rows[0].count;
+
+    res.json({
+      stats: {
+        totalUsers,
+        totalProjects,
+        openTickets,
+        inProgressTickets,
+        closedTickets
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again later' });
+  }
+});
