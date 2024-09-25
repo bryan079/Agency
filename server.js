@@ -163,3 +163,23 @@ app.get('/projects', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+app.post('/tickets', authenticateToken, async (req, res) => {
+  const { subject, description } = req.body;
+  try {
+    await pool.query('INSERT INTO tickets (user_id, subject, description, status) VALUES ($1, $2, $3, $4)', 
+    [req.user.id, subject, description, 'open']);
+    res.status(201).json({ message: 'Ticket created successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+app.get('/tickets', authenticateToken, async (req, res) => {
+  try {
+    const tickets = await pool.query('SELECT * FROM tickets WHERE user_id = $1', [req.user.id]);
+    res.json(tickets.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
