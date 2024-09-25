@@ -1,75 +1,44 @@
 const express = require('express');
+const { Pool } = require('pg'); // PostgreSQL module
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const SECRET_KEY = 'your_jwt_secret_key'; // Vervang dit door een veiligere sleutel
-app.use(express.json());
+// Haal de secret key op uit de environment variables
+const SECRET_KEY = process.env.SECRET_KEY;
 
-// Simpele in-memory "database" voor gebruikers (voor testen)
-const users = [];
-
-// Root route
-app.get('/', (req, res) => {
-  res.send('Backend is live on Railway!');
+// PostgreSQL-verbinding instellen
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
-// Registratie route
+app.use(express.json());
+
+// Voorbeeld registratie route
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
 
-  // Controleer of de gebruiker al bestaat
-  const userExists = users.find(user => user.username === username);
-  if (userExists) {
-    return res.status(400).json({ message: 'User already exists' });
-  }
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Hash het wachtwoord
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Sla de gebruiker op (in-memory)
-  users.push({ username, password: hashedPassword });
-  res.status(201).json({ message: 'User registered successfully' });
-});
-
-// Login route
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-
-  // Vind de gebruiker
-  const user = users.find(u => u.username === username);
-  if (!user) {
-    return res.status(400).json({ message: 'User not found' });
-  }
-
-  // Controleer of het wachtwoord correct is
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return res.status(400).json({ message: 'Invalid credentials' });
-  }
-
-  // Maak een JWT-token
-  const token = jwt.sign({ username }, SECRET_KEY, { expiresIn: '1h' });
-  res.json({ token });
-});
-
-// Beveiligde route: alleen toegankelijk met een geldig token
-app.get('/dashboard', (req, res) => {
-  const token = req.headers['authorization'];
-
-  if (!token) {
-    return res.status(403).json({ message: 'No token provided!' });
-  }
-
-  // Verifieer het token
-  jwt.verify(token.split(' ')[1], SECRET_KEY, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ message: 'Invalid token!' });
+    // Controleer of de gebruiker al bestaat
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (result.rows.length > 0) {
+      return res.status(400).json({ message: 'User already exists' });
     }
 
-    res.json({ message: `Welcome to your dashboard, ${decoded.username}` });
-  });
+    // Voeg nieuwe gebruiker toe aan de database
+    await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, hashedPassword]);
+
+    res.status(201).json({ message: 'User registered successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // Start de server
