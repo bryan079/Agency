@@ -154,3 +154,12 @@ app.post('/change-password', authenticateToken, async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+app.get('/projects', authenticateToken, async (req, res) => {
+  try {
+    const projects = await pool.query('SELECT * FROM projects WHERE user_id = $1', [req.user.id]);
+    res.json(projects.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
