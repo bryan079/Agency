@@ -4,7 +4,7 @@ import axios from 'axios';
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(''); // Foutmelding
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -13,8 +13,19 @@ function Login() {
       const token = response.data.token;
       localStorage.setItem('token', token);
       setMessage('Login successful');
+      // Hier kun je gebruikers doorverwijzen naar de dashboardpagina na succesvolle login
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Error logging in');
+      if (error.response) {
+        // De backend heeft een fout geretourneerd
+        if (error.response.status === 400) {
+          setMessage('Invalid username or password');
+        } else if (error.response.status === 500) {
+          setMessage('Server error, please try again later');
+        }
+      } else {
+        // Netwerk- of andere fouten
+        setMessage('Network error, please check your connection');
+      }
     }
   };
 
@@ -38,10 +49,9 @@ function Login() {
         />
         <button type="submit">Login</button>
       </form>
-      {message && <p>{message}</p>}
+      {message && <p>{message}</p>} {/* Foutmelding weergeven */}
     </div>
   );
 }
 
 export default Login;
-
