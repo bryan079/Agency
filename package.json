@@ -1,3 +1,15 @@
-"scripts": {
-  "start": "node server.js"
+{
+  "name": "agency",
+  "version": "1.0.0",
+  "description": "My Node.js backend project hosted on Railway",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }
