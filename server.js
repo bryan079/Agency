@@ -112,25 +112,6 @@ app.post('/logout', (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
-// Beveiligde route voor het ophalen van profielgegevens
-app.get('/profile', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT username FROM users WHERE username = $1', [req.user.username]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json({ username: result.rows[0].username });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error, please try again later' });
-  }
-});
-
-// Start de server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
 // Beveiligde route voor het ophalen van profielgegevens inclusief email, naam en adres
 app.get('/profile', authenticateToken, async (req, res) => {
   try {
@@ -148,10 +129,13 @@ app.get('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-
-// Route voor het bijwerken van profielgegevens
+// PUT endpoint voor het bijwerken van profielgegevens
 app.put('/profile', authenticateToken, async (req, res) => {
   const { email, name, address } = req.body;
+
+  if (!email || !name || !address) {
+    return res.status(400).json({ message: 'All fields (email, name, address) are required' });
+  }
 
   try {
     const result = await pool.query(
@@ -168,3 +152,7 @@ app.put('/profile', authenticateToken, async (req, res) => {
   }
 });
 
+// Start de server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
