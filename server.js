@@ -130,3 +130,21 @@ app.get('/profile', authenticateToken, async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Beveiligde route voor het ophalen van profielgegevens inclusief email, naam en adres
+app.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT username, email, name, address FROM users WHERE username = $1',
+      [req.user.username]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again later' });
+  }
+});
+
