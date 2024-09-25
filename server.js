@@ -152,7 +152,73 @@ app.put('/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// Start de server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Projectbeheer routes
+
+// POST route voor het aanmaken van een project
+app.post('/projects', authenticateToken, async (req, res) => {
+  const { projectName, description } = req.body;
+
+  if (!projectName || !description) {
+    return res.status(400).json({ message: 'Project name and description are required' });
+  }
+
+  try {
+    await pool.query(
+      'INSERT INTO projects (user_id, project_name, description) VALUES ($1, $2, $3)',
+      [req.user.username, projectName, description]
+    );
+    res.status(201).json({ message: 'Project created successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again later' });
+  }
 });
+
+// GET route voor het ophalen van alle projecten van de gebruiker
+app.get('/projects', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM projects WHERE user_id = $1', [req.user.username]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again later' });
+  }
+});
+
+// PUT route voor het bijwerken van een project
+app.put('/projects/:projectId', authenticateToken, async (req, res) => {
+  const { projectName, description } = req.body;
+  const { projectId } = req.params;
+
+  if (!projectName || !description) {
+    return res.status(400).json({ message: 'Project name and description are required' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE projects SET project_name = $1, description = $2 WHERE id = $3 AND user_id = $4 RETURNING *',
+      [projectName, description, projectId, req.user.username]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again later' });
+  }
+});
+
+// DELETE route voor het verwijderen van een project
+app.delete('/projects/:projectId', authenticateToken, async (req, res) => {
+  const { projectId } = req.params;
+
+  try {
+    const result = await pool.query('DELETE FROM projects WHERE id = $1 AND user_id = $2', [projectId, req.user.username]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    res.json({ message: 'Project deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error, please try again
